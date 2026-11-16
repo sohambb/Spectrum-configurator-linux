@@ -83,11 +83,23 @@ impl<D: DeviceDescriptor> DeviceDescriptor for &D {
     }
 }
 
+/// Windows paths name the HID collection ("col04"). Linux paths are plain /dev/hidrawN
+/// nodes, so there the usage page 0xFF01 alone picks the vendor collection.
+#[cfg(windows)]
+fn is_target_collection(path: &str) -> bool {
+    path.to_lowercase().contains(TARGET_COLLECTION_SUBSTRING)
+}
+
+#[cfg(not(windows))]
+fn is_target_collection(_path: &str) -> bool {
+    true
+}
+
 pub fn is_target_spectrum_device<D: DeviceDescriptor>(device: &D) -> bool {
     device.vendor_id() == TARGET_VID
         && device.product_id() == TARGET_PID
         && device.usage_page() == TARGET_USAGE_PAGE
-        && device.path_str().to_lowercase().contains(TARGET_COLLECTION_SUBSTRING)
+        && is_target_collection(&device.path_str())
 }
 
 /// Resolves the authenticated target device path:
@@ -477,6 +489,16 @@ pub trait ProcessChecker {
 
 pub struct SystemProcessChecker;
 
+/// The vendor app is a Windows program and cannot run natively on Linux, so there is
+/// nothing to look for and the check reports "not running".
+#[cfg(not(windows))]
+impl ProcessChecker for SystemProcessChecker {
+    fn is_process_running(&self, _process_names: &[&str]) -> Option<String> {
+        None
+    }
+}
+
+#[cfg(windows)]
 impl ProcessChecker for SystemProcessChecker {
     fn is_process_running(&self, process_names: &[&str]) -> Option<String> {
         // Use the full path so a different "tasklist" earlier on PATH cannot be run instead.
@@ -485,7 +507,6 @@ impl ProcessChecker for SystemProcessChecker {
             .unwrap_or_else(|| std::path::PathBuf::from(r"C:\Windows\System32\tasklist.exe"));
         let mut command = std::process::Command::new(tasklist);
         command.arg("/FO").arg("CSV").arg("/NH");
-        #[cfg(windows)]
         {
             use std::os::windows::process::CommandExt;
             // CREATE_NO_WINDOW: without it, Windows flashes a console window on every Apply.
