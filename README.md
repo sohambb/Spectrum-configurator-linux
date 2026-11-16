@@ -1,14 +1,16 @@
 # Spectrum Configurator
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/sohambb/Spectrum-configurator)](../../releases/latest)
-![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4)
+[![Release](https://img.shields.io/github/v/release/sohambb/Spectrum-configurator-linux)](../../releases/latest)
+![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-0078d4)
 
 An unofficial, open-source configuration app for the **Cosmic Byte Spectrum** wired gaming mouse. It replaces the vendor's Windows software with a small, fast app built with Tauri, React, TypeScript and Rust.
 
 This project is not affiliated with or endorsed by Cosmic Byte. Product names are used only to say which mouse the app works with.
 
-**[Download the latest installer](../../releases/latest)**
+**[Download the latest release](../../releases/latest)**
+
+This is the Linux version. The Windows version is at [sohambb/Spectrum-configurator](https://github.com/sohambb/Spectrum-configurator).
 
 <p align="center">
   <img src="docs/social-preview.png" alt="Spectrum Configurator" width="760">
@@ -31,11 +33,35 @@ This project is not affiliated with or endorsed by Cosmic Byte. Product names ar
 
 ## Install
 
-1. Download the `.msi` from the [latest release](../../releases/latest).
-2. Run it. The installer asks where to install and whether to add desktop and Start menu shortcuts.
-3. Close the vendor app if it is running, then open Spectrum Configurator.
+Linux on x86_64, as an AppImage. AppImages need FUSE 2: `fuse2` on Arch, `fuse-libs` on Fedora, `libfuse2` on Debian and Ubuntu (`libfuse2t64` on Ubuntu 24.04 and newer).
 
-Windows 10 and 11 are supported. The installer is not code-signed, so Windows SmartScreen may show a blue "Windows protected your PC" window. Click **More info**, then **Run anyway**.
+**Tested on Fedora 44 KDE with a real mouse. Other distros are not tested yet.**
+
+### One command
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sohambb/Spectrum-configurator-linux/main/install.sh | bash
+```
+
+The script downloads the latest release, checks its SHA256, adds an app menu entry and installs the udev rule. The udev rule is the only step that needs root, and the script says so before `sudo` asks for your password. If the mouse is plugged in, unplug and replug it once.
+
+To remove everything the script added, including the udev rule:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/sohambb/Spectrum-configurator-linux/main/install.sh | bash -s -- --uninstall
+```
+
+### By hand
+
+1. Download the `.AppImage` from the [latest release](../../releases/latest) and make it executable.
+2. Install the udev rule, then replug the mouse:
+
+```sh
+sudo curl -fsSL https://raw.githubusercontent.com/sohambb/Spectrum-configurator-linux/main/packaging/70-spectrum-configurator.rules -o /etc/udev/rules.d/70-spectrum-configurator.rules
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Without the rule, `/dev/hidraw*` can only be opened by root. The app shows "Permission denied opening the mouse" with this command. The rule applies only to the mouse's vendor interface, not to its pointer interface.
 
 ## Using it
 
@@ -47,29 +73,34 @@ Applying takes a few seconds. Do not unplug the mouse while it runs.
 
 The mouse keeps all of its settings in one block of flash memory. Apply rewrites that whole block, the same way the vendor app does. Before and after writing, the app reads the mouse's status and stops at the first sign of a mismatch. Settings you have not changed are written back as the mouse's factory defaults, not as what was on the mouse before.
 
-Apply refuses to run while the vendor app is open, because both talk to the same mouse.
+On Windows, Apply refuses to run while the vendor app is open, because both talk to the same mouse. The vendor app does not run on Linux, so that check does nothing there.
 
 ## Troubleshooting
 
 - **The app says demo mode but the mouse is plugged in.** Check the cable and try another USB port. The app looks for a Cosmic Byte Spectrum (see Hardware below) and switches over within a couple of seconds.
-- **Apply says it was refused.** Close the vendor app and try again.
-- **Something else went wrong.** Open an [issue](../../issues/new/choose) with your Windows version and what you clicked.
+- **Apply says "Permission denied opening the mouse".** Install the udev rule (see Install), then unplug and replug the mouse.
+- **Something else went wrong.** Open an [issue](../../issues/new/choose) with your Linux distro and version, how you installed the app and what you clicked.
 
 ## Roadmap
 
 - Buttons and macros (the tab is there but not built yet)
-- A Linux version
 
 ## Build from source
 
 You need [Node.js](https://nodejs.org/) 20 or newer, [Rust](https://rustup.rs/) (stable) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system.
 
-```powershell
+On Debian and Ubuntu, install the build dependencies first:
+
+```sh
+sudo apt install libwebkit2gtk-4.1-dev build-essential libssl-dev libayatana-appindicator3-dev librsvg2-dev libudev-dev pkg-config
+```
+
+```sh
 npm install
 npm run tauri dev      # run the app
 npm test               # TypeScript tests
 cargo test --manifest-path crates/spectrum-protocol/Cargo.toml   # protocol tests
-npm run tauri build    # build the installer
+npm run tauri build    # build the AppImage and the .deb
 ```
 
 ## Project layout
@@ -77,14 +108,16 @@ npm run tauri build    # build the installer
 | Folder | What it holds |
 | :--- | :--- |
 | `src/` | The React interface, profiles and the app-side logic |
-| `src-tauri/` | The Tauri shell, USB access and the installer definition |
+| `src-tauri/` | The Tauri shell, USB access and the bundle settings |
 | `crates/spectrum-protocol/` | The mouse protocol and its safety checks, with tests |
+| `packaging/` | The udev rule |
+| `install.sh` | The one-command installer and uninstaller |
 | `tests/` | TypeScript tests |
 | `docs/` | Screenshots used in this README |
 
 ## Hardware
 
-VID `0x30FA`, PID `0x1440`. Settings are sent as HID feature report `0x07` on the vendor interface (usage page `0xFF01`). The app never opens the mouse, keyboard or media interfaces.
+VID `0x30FA`, PID `0x1440`. Settings are sent as HID feature report `0x07` on the vendor interface (usage page `0xFF01`). The app only sends and reads feature report 0x07. It never calls `read()`, so it does not consume the mouse's input. On Linux, the vendor interface shares one `/dev/hidraw` node with the keyboard and media collections.
 
 ## License
 
