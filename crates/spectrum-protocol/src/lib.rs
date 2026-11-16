@@ -571,6 +571,24 @@ fn checks_before_send<T: HidTransport, P: ProcessChecker>(
 /// "nothing was written" from "the write failed part-way" without matching message text.
 pub const NOT_SENT_PREFIX: &str = "NOT_SENT: ";
 
+const UDEV_RULE_HINT: &str = "Permission denied opening the mouse. Install the udev rule: sudo curl -fsSL https://raw.githubusercontent.com/sohambb/Spectrum-configurator-linux/main/packaging/70-spectrum-configurator.rules -o /etc/udev/rules.d/70-spectrum-configurator.rules && sudo udevadm control --reload-rules && sudo udevadm trigger";
+
+/// Message for a failed open. On Linux the hidraw node is root-only until the udev rule
+/// is installed, and hidapi's own error does not say so; opening the node ourselves tells
+/// "permission denied" apart from other failures.
+pub fn open_failure(path: &str, err: &impl std::fmt::Display) -> String {
+    #[cfg(target_os = "linux")]
+    {
+        let open = std::fs::OpenOptions::new().read(true).write(true).open(path);
+        if matches!(open, Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied) {
+            return UDEV_RULE_HINT.to_string();
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = path;
+    format!("Failed to open HID device: {}", err)
+}
+
 /// The guarded write. In order: refuse while the vendor app runs, check the mouse's status,
 /// send all packets (stopping at the first error, never retrying), then read the status back
 /// five times and stop at the first mismatch. Returns the number of packets sent.
@@ -644,7 +662,7 @@ pub fn apply_settings_ipc(
         let dev_list: Vec<_> = api.device_list().collect();
         let validated_path = resolve_target_device_path(&dev_list, requested_path).map_err(not_sent)?;
         let c_path = std::ffi::CString::new(validated_path).map_err(|e| not_sent(format!("Invalid device path: {}", e)))?;
-        let dev = api.open_path(&c_path).map_err(|e| not_sent(format!("Failed to open HID device: {}", e)))?;
+        let dev = api.open_path(&c_path).map_err(|e| not_sent(open_failure(&c_path.to_string_lossy(), &e)))?;
         let mut transport = RealHidTransport { device: &dev };
         apply_settings(&mut transport, &SystemProcessChecker, rate, dpi.as_ref(), lighting.as_ref())
     })
@@ -981,6 +999,21 @@ mod tests {
         let err_not_found = resolve_target_device_path(&no_target_devices, None)
             .expect_err("Must fail when target not connected");
         assert!(err_not_found.contains("target endpoint not found"));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_open_failure_explains_permission_denied() {
+        use std::os::unix::fs::PermissionsExt;
+        let path = std::env::temp_dir().join(format!("spectrum-noperm-{}", std::process::id()));
+        std::fs::write(&path, b"").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let msg = open_failure(path.to_str().unwrap(), &"hidapi error");
+        std::fs::remove_file(&path).unwrap();
+        assert!(msg.contains("udev rule"), "{}", msg);
+
+        let missing = open_failure("/nonexistent/hidraw", &"hidapi error");
+        assert_eq!(missing, "Failed to open HID device: hidapi error");
     }
 
     #[test]

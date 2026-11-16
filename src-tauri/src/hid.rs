@@ -2,7 +2,7 @@
 //! All writes go through the guarded path in the spectrum-protocol crate.
 
 use serde::Serialize;
-use spectrum_protocol::{with_hid, TARGET_PID, TARGET_VID};
+use spectrum_protocol::{open_failure, with_hid, TARGET_PID, TARGET_VID};
 use std::ffi::CString;
 
 /// Vendor-defined usage pages of the mouse. The normal mouse, keyboard and media
@@ -42,13 +42,17 @@ pub fn scan_spectrum_devices() -> Result<Vec<DeviceInfo>, String> {
 
 /// Reads one feature report from one of the mouse's interfaces. Never waits: returns
 /// Err("busy") while a write is running.
+///
+/// Only feature reports are used, never read() or read_timeout(). On Linux the vendor
+/// collection shares one hidraw node with the keyboard and media collections, and a
+/// read() there would consume their input reports.
 pub fn read_feature_report(device_path: &str, report_id: u8) -> Result<Vec<u8>, String> {
     with_hid(false, |api| {
         if !api.device_list().any(|d| d.path().to_string_lossy() == device_path) {
             return Err("Device path is not a Cosmic Byte Spectrum interface".to_string());
         }
         let c_path = CString::new(device_path).map_err(|e| format!("Invalid device path: {}", e))?;
-        let device = api.open_path(&c_path).map_err(|e| format!("Failed to open HID device: {}", e))?;
+        let device = api.open_path(&c_path).map_err(|e| open_failure(device_path, &e))?;
         let mut buf = vec![0u8; 32];
         buf[0] = report_id;
         let n = device
