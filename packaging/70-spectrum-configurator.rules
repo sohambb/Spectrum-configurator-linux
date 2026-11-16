@@ -1,3 +1,5 @@
 # Lets the logged-in user open the mouse's vendor interface (interface 1).
 # The pointer interface (interface 0) is not matched.
-KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="30fa", ATTRS{idProduct}=="1440", ATTRS{bInterfaceNumber}=="01", MODE="0660", TAG+="uaccess"
+# Matches on ID_* properties, not ATTRS{}: ATTRS keys in one rule must all match the same
+# parent device, and the vendor/product IDs and the interface number sit on different parents.
+SUBSYSTEM=="hidraw", ENV{ID_VENDOR_ID}=="30fa", ENV{ID_MODEL_ID}=="1440", ENV{ID_USB_INTERFACE_NUM}=="01", MODE="0660", TAG+="uaccess"

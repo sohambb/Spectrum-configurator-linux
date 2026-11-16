@@ -56,6 +56,13 @@
       "icons/128x128.png",
       "icons/icon.png"
     ],
-    "shortDescription": "Configuration app for the Cosmic Byte Spectrum mouse"
+    "shortDescription": "Configuration app for the Cosmic Byte Spectrum mouse",
+    "linux": {
+      "deb": {
+        "files": {
+          "/lib/udev/rules.d/70-spectrum-configurator.rules": "../packaging/70-spectrum-configurator.rules"
+        }
+      }
+    }
   }
 }
