@@ -13,7 +13,9 @@ A short description of the problem, and what you expected instead.
 
 **Your setup**
 - App version (see the release you installed):
-- Windows version:
+- Linux distro and version:
+- Install method (curl script, AppImage, package, Flatpak):
+- Desktop (GNOME, KDE, other):
 - Mouse: Cosmic Byte Spectrum (VID 30FA, PID 1440)? yes / no
 - Was the vendor app closed? yes / no
 
