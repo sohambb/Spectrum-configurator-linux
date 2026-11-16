@@ -1008,6 +1008,11 @@ mod tests {
         let path = std::env::temp_dir().join(format!("spectrum-noperm-{}", std::process::id()));
         std::fs::write(&path, b"").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        // Root ignores mode 000, so there is no permission error to explain.
+        if std::fs::File::open(&path).is_ok() {
+            std::fs::remove_file(&path).unwrap();
+            return;
+        }
         let msg = open_failure(path.to_str().unwrap(), &"hidapi error");
         std::fs::remove_file(&path).unwrap();
         assert!(msg.contains("udev rule"), "{}", msg);
