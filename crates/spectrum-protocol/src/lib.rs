@@ -68,7 +68,7 @@ impl DeviceDescriptor for hidapi::DeviceInfo {
     }
 }
 
-impl<'a, D: DeviceDescriptor> DeviceDescriptor for &'a D {
+impl<D: DeviceDescriptor> DeviceDescriptor for &D {
     fn vendor_id(&self) -> u16 {
         (*self).vendor_id()
     }
@@ -114,13 +114,11 @@ pub fn resolve_target_device_path<D: DeviceDescriptor>(
     // 2. Validate requested path if provided
     if let Some(req) = requested_path {
         let req_clean = req.trim();
-        if !req_clean.is_empty() {
-            if !req_clean.eq_ignore_ascii_case(&target_path) {
-                return Err(format!(
-                    "Security rejection: Device path '{}' does not match verified Spectrum Col04 endpoint '{}'. Writes cannot be redirected.",
-                    req_clean, target_path
-                ));
-            }
+        if !req_clean.is_empty() && !req_clean.eq_ignore_ascii_case(&target_path) {
+            return Err(format!(
+                "Security rejection: Device path '{}' does not match verified Spectrum Col04 endpoint '{}'. Writes cannot be redirected.",
+                req_clean, target_path
+            ));
         }
     }
 
@@ -388,7 +386,7 @@ fn packets_from_image(image: &BTreeMap<u16, u8>) -> Result<Vec<Vec<u8>>, String>
         // 1. Action 0x03 Payload packets
         for sub in 0..size {
             let cur_addr = addr + (sub as u16);
-            if cur_addr < 0x0001 || cur_addr > MAX_OBSERVED_ADDR {
+            if !(0x0001..=MAX_OBSERVED_ADDR).contains(&cur_addr) {
                 return Err(format!("Address 0x{:04X} out of whitelist range 0x0001..0x04C7", cur_addr));
             }
 
@@ -780,7 +778,7 @@ mod tests {
                 let sub = p[3] as u16;
                 let addr = (p[4] as u16) | ((p[5] as u16) << 8);
                 let target = addr + sub;
-                assert!(target >= 0x0001 && target <= 0x04C7, "Target addr 0x{:04X} out of range", target);
+                assert!((0x0001..=0x04C7).contains(&target), "Target addr 0x{:04X} out of range", target);
             }
         }
     }
