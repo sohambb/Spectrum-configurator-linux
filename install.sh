@@ -74,6 +74,7 @@ Name=Spectrum Configurator
 Comment=Configuration app for the Cosmic Byte Spectrum mouse
 Exec=$APPIMAGE
 Icon=spectrum-configurator
+StartupWMClass=spectrum-configurator
 Categories=Utility;Settings;
 Terminal=false
 EOF
