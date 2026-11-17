@@ -43,9 +43,9 @@ Linux on x86_64, as an AppImage. AppImages need FUSE 2: `fuse2` on Arch, `fuse-l
 curl -fsSL https://raw.githubusercontent.com/sohambb/Spectrum-configurator-linux/main/install.sh | bash
 ```
 
-The script downloads the latest release, checks its SHA256, adds an app menu entry and installs the udev rule. The udev rule is the only step that needs root, and the script says so before `sudo` asks for your password. If the mouse is plugged in, unplug and replug it once.
+The script downloads the latest release, checks its SHA256, adds an app menu entry and installs the udev rule. The checksum comes from the same release, so it catches a damaged download, not a tampered release. The udev rule is built into the script, so the file installed as root is the one you can read in `install.sh`. It is the only step that needs root, and the script says so before `sudo` asks for your password. If the mouse is plugged in, unplug and replug it once.
 
-To remove everything the script added, including the udev rule:
+To remove everything the script added, including the udev rule (a rule file you changed yourself is left in place):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/sohambb/Spectrum-configurator-linux/main/install.sh | bash -s -- --uninstall

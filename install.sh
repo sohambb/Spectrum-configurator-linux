@@ -11,10 +11,21 @@ DESKTOP_FILE="$DATA_HOME/applications/spectrum-configurator.desktop"
 ICON_FILE="$DATA_HOME/icons/hicolor/128x128/apps/spectrum-configurator.png"
 UDEV_RULE="/etc/udev/rules.d/70-spectrum-configurator.rules"
 ASSET="Spectrum-Configurator-x86_64.AppImage"
-RULE_ASSET="70-spectrum-configurator.rules"
 ICON_ASSET="spectrum-configurator.png"
 tmp=""
 CURL=(curl --proto '=https' --tlsv1.2 -fsSL)
+
+# Embedded so the file installed as root is exactly what this script says, not whatever the download returns.
+# tests/embedded-rule.sh checks that it equals packaging/70-spectrum-configurator.rules.
+udev_rule() {
+  cat <<'RULE'
+# Lets the logged-in user open the mouse's vendor interface (interface 1).
+# The pointer interface (interface 0) is not matched.
+# Matches on ID_* properties, not ATTRS{}: ATTRS keys in one rule must all match the same
+# parent device, and the vendor/product IDs and the interface number sit on different parents.
+SUBSYSTEM=="hidraw", ENV{ID_VENDOR_ID}=="30fa", ENV{ID_MODEL_ID}=="1440", ENV{ID_USB_INTERFACE_NUM}=="01", MODE="0660", TAG+="uaccess"
+RULE
+}
 
 die() {
   echo "Error: $*" >&2
@@ -53,10 +64,14 @@ uninstall() {
   rm -f "$APPIMAGE" "$DESKTOP_FILE" "$ICON_FILE"
   rmdir "$APP_DIR" 2>/dev/null || true
   refresh_caches
-  if [ -e "$UDEV_RULE" ]; then
+  if [ ! -e "$UDEV_RULE" ]; then
+    :
+  elif [ "$(cat "$UDEV_RULE")" = "$(udev_rule)" ]; then
     echo "Removing the udev rule needs root, so sudo may ask for your password."
     as_root rm -f "$UDEV_RULE"
     reload_udev
+  else
+    echo "Leaving $UDEV_RULE in place: it is not the file this installer wrote."
   fi
   echo "Spectrum Configurator is uninstalled."
 }
@@ -68,10 +83,15 @@ install_app() {
 
   echo "Downloading Spectrum Configurator..."
   local file
-  for file in "$ASSET" "$RULE_ASSET" "$ICON_ASSET" SHA256SUMS; do
+  for file in "$ASSET" "$ICON_ASSET" SHA256SUMS; do
     "${CURL[@]}" "$BASE_URL/$file" -o "$tmp/$file" || die "could not download $file from $BASE_URL"
   done
-  (cd "$tmp" && sha256sum --check --quiet SHA256SUMS) || die "checksum mismatch, nothing was installed"
+  # SHA256SUMS also lists the udev rule, which is embedded here and not downloaded, so missing files are
+  # ignored by --check. That is why both downloads must be required to be listed first.
+  for file in "$ASSET" "$ICON_ASSET"; do
+    grep -qE "^[0-9a-f]{64}  $file\$" "$tmp/SHA256SUMS" || die "$file is not in SHA256SUMS, nothing was installed"
+  done
+  (cd "$tmp" && sha256sum --check --quiet --ignore-missing SHA256SUMS) || die "checksum mismatch, nothing was installed"
 
   mkdir -p "$APP_DIR" "$(dirname "$DESKTOP_FILE")" "$(dirname "$ICON_FILE")"
   install -m 755 "$tmp/$ASSET" "$APPIMAGE"
@@ -92,7 +112,8 @@ EOF
 
   echo "The udev rule lets your user open the mouse. It is the only step that needs root,"
   echo "so sudo may ask for your password."
-  as_root install -m 644 "$tmp/$RULE_ASSET" "$UDEV_RULE"
+  udev_rule >"$tmp/udev.rules"
+  as_root install -m 644 "$tmp/udev.rules" "$UDEV_RULE"
   reload_udev
 
   echo "Installed. Open Spectrum Configurator from the app menu."
