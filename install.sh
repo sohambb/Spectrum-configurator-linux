@@ -14,6 +14,7 @@ ASSET="Spectrum-Configurator-x86_64.AppImage"
 RULE_ASSET="70-spectrum-configurator.rules"
 ICON_ASSET="spectrum-configurator.png"
 tmp=""
+CURL=(curl --proto '=https' --tlsv1.2 -fsSL)
 
 die() {
   echo "Error: $*" >&2
@@ -27,6 +28,13 @@ as_root() {
 reload_udev() {
   as_root udevadm control --reload-rules && as_root udevadm trigger ||
     echo "Warning: could not reload udev. Unplug and replug the mouse, or reboot." >&2
+}
+
+# Best effort: lets the app menu and icon theme notice the new files without a re-login.
+refresh_caches() {
+  command -v update-desktop-database >/dev/null && update-desktop-database -q "$(dirname "$DESKTOP_FILE")" 2>/dev/null || true
+  command -v gtk-update-icon-cache >/dev/null && [ -f "$DATA_HOME/icons/hicolor/index.theme" ] &&
+    gtk-update-icon-cache -q -t -f "$DATA_HOME/icons/hicolor" 2>/dev/null || true
 }
 
 fuse_package() {
@@ -44,6 +52,7 @@ fuse_package() {
 uninstall() {
   rm -f "$APPIMAGE" "$DESKTOP_FILE" "$ICON_FILE"
   rmdir "$APP_DIR" 2>/dev/null || true
+  refresh_caches
   if [ -e "$UDEV_RULE" ]; then
     echo "Removing the udev rule needs root, so sudo may ask for your password."
     as_root rm -f "$UDEV_RULE"
@@ -60,7 +69,7 @@ install_app() {
   echo "Downloading Spectrum Configurator..."
   local file
   for file in "$ASSET" "$RULE_ASSET" "$ICON_ASSET" SHA256SUMS; do
-    curl -fsSL "$BASE_URL/$file" -o "$tmp/$file" || die "could not download $file from $BASE_URL"
+    "${CURL[@]}" "$BASE_URL/$file" -o "$tmp/$file" || die "could not download $file from $BASE_URL"
   done
   (cd "$tmp" && sha256sum --check --quiet SHA256SUMS) || die "checksum mismatch, nothing was installed"
 
@@ -72,12 +81,14 @@ install_app() {
 Type=Application
 Name=Spectrum Configurator
 Comment=Configuration app for the Cosmic Byte Spectrum mouse
-Exec=$APPIMAGE
+Exec="$APPIMAGE"
 Icon=spectrum-configurator
 StartupWMClass=spectrum-configurator
 Categories=Utility;Settings;
 Terminal=false
 EOF
+
+  refresh_caches
 
   echo "The udev rule lets your user open the mouse. It is the only step that needs root,"
   echo "so sudo may ask for your password."
