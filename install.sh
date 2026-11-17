@@ -112,8 +112,8 @@ EOF
 
   echo "The udev rule lets your user open the mouse. It is the only step that needs root,"
   echo "so sudo may ask for your password."
-  udev_rule >"$tmp/udev.rules"
-  as_root install -m 644 "$tmp/udev.rules" "$UDEV_RULE"
+  # Piped, not passed as a file: a file in a user-writable directory could be swapped while sudo asks for the password.
+  udev_rule | as_root install -m 644 /dev/stdin "$UDEV_RULE"
   reload_udev
 
   echo "Installed. Open Spectrum Configurator from the app menu."
