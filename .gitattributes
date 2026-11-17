@@ -1,5 +1,4 @@
-# Normalise line endings so Windows and Linux checkouts stay identical
+# Normalise line endings
 * text=auto
 *.png binary
-*.ico binary
 *.woff2 binary

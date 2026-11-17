@@ -17,7 +17,6 @@ A short description of the problem, and what you expected instead.
 - Install method (curl script, AppImage, package, Flatpak):
 - Desktop (GNOME, KDE, other):
 - Mouse: Cosmic Byte Spectrum (VID 30FA, PID 1440)? yes / no
-- Was the vendor app closed? yes / no
 
 **Screenshot**
 If it helps, paste a screenshot here.

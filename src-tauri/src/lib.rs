@@ -17,7 +17,7 @@ async fn hid_scan_devices() -> Result<Vec<DeviceInfo>, String> {
 
 /// Guarded write of the polling rate plus, optionally, the six DPI stages and the lighting,
 /// in one flash rewrite. Rust finds and validates the device itself (VID 0x30FA, PID 0x1440,
-/// usage page 0xFF01, col04); the path from the UI cannot redirect writes.
+/// usage page 0xFF01, plus col04 on Windows); the path from the UI cannot redirect writes.
 #[tauri::command]
 async fn hid_apply_settings(
     path: Option<String>,

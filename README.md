@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/sohambb/Spectrum-configurator-linux)](../../releases/latest)
-![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-0078d4)
+![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-lightgrey)
 
 An unofficial, open-source configuration app for the **Cosmic Byte Spectrum** wired gaming mouse. It replaces the vendor's Windows software with a small, fast app built with Tauri, React, TypeScript and Rust.
 
