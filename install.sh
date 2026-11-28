@@ -43,9 +43,12 @@ reload_udev() {
 
 # Best effort: lets the app menu and icon theme notice the new files without a re-login.
 refresh_caches() {
-  command -v update-desktop-database >/dev/null && update-desktop-database -q "$(dirname "$DESKTOP_FILE")" 2>/dev/null || true
-  command -v gtk-update-icon-cache >/dev/null && [ -f "$DATA_HOME/icons/hicolor/index.theme" ] &&
+  if command -v update-desktop-database >/dev/null; then
+    update-desktop-database -q "$(dirname "$DESKTOP_FILE")" 2>/dev/null || true
+  fi
+  if command -v gtk-update-icon-cache >/dev/null && [ -f "$DATA_HOME/icons/hicolor/index.theme" ]; then
     gtk-update-icon-cache -q -t -f "$DATA_HOME/icons/hicolor" 2>/dev/null || true
+  fi
 }
 
 fuse_package() {
