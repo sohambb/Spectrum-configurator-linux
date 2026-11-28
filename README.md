@@ -103,6 +103,17 @@ cargo test --manifest-path crates/spectrum-protocol/Cargo.toml   # protocol test
 npm run tauri build    # build the AppImage and the .deb
 ```
 
+## Releases and updates
+
+Dependabot opens dependency updates weekly, and the `Check` workflow builds and tests each one.
+
+- **Merged automatically:** patch and minor updates to the app's npm and Cargo packages that pass the check.
+- **Wait for you:** major versions, anything that changes `hidapi` (it carries the writes to the mouse), GitHub Actions updates and the protocol crate.
+
+On Thursdays the `Auto release` workflow looks for merged dependency updates. If there are any, it bumps the patch version and builds a **draft** release. CI cannot test a real mouse or see the window, so download the draft's AppImage, try it, then click **Publish**. No new draft is made while one is waiting.
+
+To release by hand, run `scripts/bump-version.sh 1.2.3`, commit, push, then push the tag `v1.2.3`. If a release build fails, fix the cause and move the tag, or run the `Release` workflow again on that tag.
+
 ## Project layout
 
 | Folder | What it holds |
@@ -111,6 +122,7 @@ npm run tauri build    # build the AppImage and the .deb
 | `src-tauri/` | The Tauri shell, USB access and the bundle settings |
 | `crates/spectrum-protocol/` | The mouse protocol and its safety checks, with tests |
 | `packaging/` | The udev rule |
+| `scripts/` | Version bump and release helpers |
 | `install.sh` | The one-command installer and uninstaller |
 | `tests/` | TypeScript tests |
 | `docs/` | Screenshots used in this README |

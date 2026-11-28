@@ -4,6 +4,9 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Routine updates merge on their own, so give a bad or hijacked version time to be noticed.
+    cooldown:
+      default-days: 7
     groups:
       # These must move together: React rejects a react-dom of a different version.
       react:
@@ -19,6 +22,8 @@ updates:
     directory: /src-tauri
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     groups:
       tauri:
         patterns: ["tauri", "tauri-*"]

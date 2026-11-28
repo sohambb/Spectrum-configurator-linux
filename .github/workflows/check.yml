@@ -34,7 +34,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev libudev-dev pkg-config
 
-      - run: shellcheck install.sh tests/embedded-rule.sh
+      - run: shellcheck install.sh tests/embedded-rule.sh scripts/*.sh
       - run: tests/embedded-rule.sh
       - run: npm ci
       - run: npm test
@@ -42,3 +42,50 @@ jobs:
       - run: cargo clippy --manifest-path crates/spectrum-protocol/Cargo.toml --all-targets -- -D warnings
       - run: npm run tauri build -- --bundles appimage
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+  # Merges Dependabot's routine updates once the check job above has passed. Everything else waits for a person.
+  automerge:
+    needs: check
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        id: update
+
+      # This job never checks out or runs the pull request's code.
+      - name: Merge if it is a routine update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          UPDATE_TYPE: ${{ steps.update.outputs.update-type }}
+        run: |
+          wait_for_person() { echo "::notice::Not merged automatically: $1"; exit 0; }
+
+          case "$UPDATE_TYPE" in
+            version-update:semver-patch | version-update:semver-minor) ;;
+            *) wait_for_person "not a patch or minor update ($UPDATE_TYPE)" ;;
+          esac
+
+          # Only the app's own manifests. This leaves out workflow files, which run with release
+          # permissions, and the protocol crate, which must stay the same as the Windows repo.
+          files=$(gh pr diff "$PR" --name-only)
+          if grep -qvxE 'package(-lock)?\.json|src-tauri/Cargo\.(toml|lock)' <<<"$files"; then
+            wait_for_person "it changes files other than the app's package manifests"
+          fi
+
+          # hidapi carries every write to the mouse, which CI cannot test.
+          hidapi_version() {
+            gh api "repos/$GH_REPO/contents/src-tauri/Cargo.lock?ref=$1" -H "Accept: application/vnd.github.raw" |
+              grep -A1 '^name = "hidapi"$' | tail -n 1
+          }
+          before=$(hidapi_version "$BASE_SHA")
+          after=$(hidapi_version "$HEAD_SHA")
+          [ -n "$before" ] && [ "$before" = "$after" ] || wait_for_person "it changes hidapi"
+
+          gh pr merge "$PR" --rebase --match-head-commit "$HEAD_SHA"

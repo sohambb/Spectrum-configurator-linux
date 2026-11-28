@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  # Used by auto-release.yml, and to retry a failed build. Run it on a tag, not a branch.
+  workflow_dispatch:
 
 permissions: {}
 

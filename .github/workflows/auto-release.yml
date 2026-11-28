@@ -1,0 +1,59 @@
+name: Auto release
+
+# Weekly: if Dependabot's updates have changed the app since the latest tag, bump the patch version, tag it and
+# start the Release workflow. That creates a draft. Nothing reaches users until a person publishes it.
+on:
+  schedule:
+    - cron: "0 6 * * 4" # Thursdays, after Dependabot's weekly updates have had time to merge
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: auto-release
+
+jobs:
+  tag:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # push the version commit and tag
+      actions: write # start the Release workflow
+    steps:
+      # Keeps the token, because this job pushes. It installs and builds no dependencies.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Tag a new version if there is something to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(scripts/next-version.sh)
+          if [ -z "$version" ]; then
+            echo "::notice::No dependency updates since the latest tag. Nothing to release."
+            exit 0
+          fi
+
+          drafts=$(gh release list --json isDraft,tagName --jq '.[] | select(.isDraft) | .tagName')
+          if [ -n "$drafts" ]; then
+            echo "::warning::Draft release $drafts is still waiting. Publish or delete it first."
+            exit 0
+          fi
+
+          last=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          gh release view "$last" >/dev/null || {
+            echo "::error::Tag $last has no release. Its build probably failed: fix it and run Release on that tag."
+            exit 1
+          }
+
+          scripts/bump-version.sh "$version"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Bump version to $version"
+          git tag -a "v$version" -m "Spectrum Configurator $version for Linux"
+          git push --atomic origin HEAD:main "v$version"
+
+          # A tag pushed with the workflow token does not trigger other workflows, so start it by hand.
+          gh workflow run release.yml --ref "v$version"
