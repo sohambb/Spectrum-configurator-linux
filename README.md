@@ -87,7 +87,7 @@ On Windows, Apply refuses to run while the vendor app is open, because both talk
 
 ## Build from source
 
-You need [Node.js](https://nodejs.org/) 20 or newer, [Rust](https://rustup.rs/) (stable) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system.
+You need [Node.js](https://nodejs.org/) 22 or newer, [Rust](https://rustup.rs/) (stable) and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your system.
 
 On Debian and Ubuntu, install the build dependencies first:
 
